@@ -322,6 +322,40 @@ class EmailCheckerService:
             vps_logger.warning("Email verification may be incomplete for some domains!")
         
         vps_logger.info("="*60)
+        
+        # Check indexes on connected databases
+        if successful > 0:
+            vps_logger.info("Checking indexes on VPS collections...")
+            await self.verify_indexes()
+    
+    async def verify_indexes(self):
+        """Verify that _email_hash indexes exist on VPS collections."""
+        for vps_name, db in self._databases.items():
+            try:
+                # Get a sample collection to check
+                collections = await asyncio.wait_for(db.list_collection_names(), timeout=10.0)
+                if collections:
+                    sample_collection = collections[0]
+                    indexes = await asyncio.wait_for(
+                        db[sample_collection].index_information(),
+                        timeout=10.0
+                    )
+                    
+                    # Check if _email_hash index exists
+                    has_email_hash_index = any(
+                        '_email_hash' in idx.get('key', [{}])[0] 
+                        for idx in indexes.values()
+                    )
+                    
+                    if has_email_hash_index:
+                        vps_logger.info(f"✓ {vps_name}: _email_hash index found on {sample_collection}")
+                    else:
+                        vps_logger.warning(f"⚠️ {vps_name}: No _email_hash index on {sample_collection}")
+                        vps_logger.warning(f"   This will cause SLOW queries and TIMEOUTS!")
+                        vps_logger.warning(f"   Run: db.{sample_collection}.createIndex({{'_email_hash': 1}})")
+                        
+            except Exception as e:
+                vps_logger.warning(f"{vps_name}: Could not verify indexes: {str(e)}")
     
     def close_all(self):
         """Close all VPS connections."""
@@ -364,15 +398,18 @@ class EmailCheckerService:
                     {"_email_hash": email_hash},
                     {"_id": 1}
                 ),
-                timeout=5.0
+                timeout=30.0  # Increased from 5s to 30s
             )
             
             is_leaked = result is not None
-            email_checker_logger.debug(f"Email check: {email} -> {vps_name}/{collection_name} -> {'LEAKED' if is_leaked else 'FRESH'}")
+            email_checker_logger.info(f"Email check: {email} -> {vps_name}/{collection_name} -> {'LEAKED' if is_leaked else 'FRESH'}")
             return is_leaked
             
         except asyncio.TimeoutError:
-            email_checker_logger.error(f"Timeout checking email in {vps_name}/{collection_name}: {email}")
+            email_checker_logger.error(f"⚠️ TIMEOUT (30s) checking email in {vps_name}/{collection_name}: {email}")
+            email_checker_logger.error(f"This usually means the collection is missing an index on _email_hash field")
+            email_checker_logger.error(f"Query: {{'_email_hash': '{email_hash}'}}")
+            # Return False on timeout to avoid treating as leaked
             return False
         except Exception as e:
             email_checker_logger.error(f"Error checking email in {vps_name}/{collection_name}: {type(e).__name__}: {str(e)}")
