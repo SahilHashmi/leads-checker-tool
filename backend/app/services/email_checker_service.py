@@ -12,6 +12,7 @@ from typing import List, Dict, Optional
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 import asyncio
 from ..core.config import settings
+from ..core.logger import email_checker_logger, vps_logger
 
 
 # =============================================================================
@@ -242,36 +243,82 @@ class EmailCheckerService:
         return vps_list
     
     async def connect_to_vps(self, vps_config: Dict) -> Optional[AsyncIOMotorDatabase]:
-        """Connect to a single VPS database."""
-        try:
-            client = AsyncIOMotorClient(
-                vps_config["url"],
-                serverSelectionTimeoutMS=5000,
-                connectTimeoutMS=5000
-            )
-            # Test connection
-            await client.admin.command('ping')
-            
-            self._connections[vps_config["name"]] = client
-            self._databases[vps_config["name"]] = client[vps_config["database"]]
-            
-            print(f"Connected to {vps_config['name']}: {vps_config['database']}")
-            return self._databases[vps_config["name"]]
-        except Exception as e:
-            print(f"Failed to connect to {vps_config['name']}: {e}")
-            return None
+        """Connect to a single VPS database with retry logic."""
+        vps_name = vps_config["name"]
+        vps_url = vps_config["url"]
+        vps_db = vps_config["database"]
+        
+        vps_logger.info(f"Attempting to connect to {vps_name} at {vps_url}")
+        
+        max_retries = 3
+        retry_delay = 2  # seconds
+        
+        for attempt in range(1, max_retries + 1):
+            try:
+                vps_logger.info(f"{vps_name}: Connection attempt {attempt}/{max_retries}")
+                
+                client = AsyncIOMotorClient(
+                    vps_url,
+                    serverSelectionTimeoutMS=10000,
+                    connectTimeoutMS=10000,
+                    socketTimeoutMS=10000
+                )
+                
+                # Test connection with ping
+                await asyncio.wait_for(
+                    client.admin.command('ping'),
+                    timeout=10.0
+                )
+                
+                self._connections[vps_name] = client
+                self._databases[vps_name] = client[vps_db]
+                
+                vps_logger.info(f"✓ Successfully connected to {vps_name}: {vps_db}")
+                return self._databases[vps_name]
+                
+            except asyncio.TimeoutError:
+                vps_logger.error(f"{vps_name}: Connection timeout on attempt {attempt}/{max_retries}")
+                if attempt < max_retries:
+                    vps_logger.info(f"{vps_name}: Retrying in {retry_delay} seconds...")
+                    await asyncio.sleep(retry_delay)
+                    
+            except Exception as e:
+                vps_logger.error(f"{vps_name}: Connection failed on attempt {attempt}/{max_retries}: {type(e).__name__}: {str(e)}")
+                if attempt < max_retries:
+                    vps_logger.info(f"{vps_name}: Retrying in {retry_delay} seconds...")
+                    await asyncio.sleep(retry_delay)
+        
+        vps_logger.error(f"✗ Failed to connect to {vps_name} after {max_retries} attempts")
+        return None
     
     async def connect_all(self):
         """Connect to all enabled VPS databases."""
         configs = self.get_vps_configs()
+        
         if not configs:
-            print("WARNING: No VPS databases configured!")
+            vps_logger.warning("⚠ WARNING: No VPS databases configured! Email verification will not work.")
+            vps_logger.warning("Please configure VPS database URLs in .env file (VPS2_MONGODB_URL, etc.)")
             return
         
-        tasks = [self.connect_to_vps(config) for config in configs]
-        await asyncio.gather(*tasks, return_exceptions=True)
+        vps_logger.info(f"Starting connection to {len(configs)} VPS databases...")
         
-        print(f"Connected to {len(self._databases)} VPS databases: {list(self._databases.keys())}")
+        tasks = [self.connect_to_vps(config) for config in configs]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Log connection summary
+        successful = len(self._databases)
+        failed = len(configs) - successful
+        
+        vps_logger.info("="*60)
+        vps_logger.info(f"VPS Connection Summary: {successful}/{len(configs)} successful")
+        vps_logger.info(f"Connected VPS databases: {list(self._databases.keys())}")
+        
+        if failed > 0:
+            failed_vps = [cfg['name'] for cfg in configs if cfg['name'] not in self._databases]
+            vps_logger.warning(f"Failed VPS databases: {failed_vps}")
+            vps_logger.warning("Email verification may be incomplete for some domains!")
+        
+        vps_logger.info("="*60)
     
     def close_all(self):
         """Close all VPS connections."""
@@ -293,8 +340,7 @@ class EmailCheckerService:
         # Get routing info for this email
         routing = get_email_routing(email)
         if not routing:
-            # No routing means we can't check this email
-            print(f"No routing for email domain: {email}")
+            email_checker_logger.warning(f"No routing found for email domain: {email}")
             return False
         
         vps_name = routing["vps"]
@@ -302,20 +348,32 @@ class EmailCheckerService:
         
         # Check if we have this VPS connected
         if vps_name not in self._databases:
-            print(f"VPS {vps_name} not connected, cannot check email")
+            email_checker_logger.error(f"VPS {vps_name} not connected, cannot check email: {email}")
+            email_checker_logger.error(f"Required VPS: {vps_name}, Available VPS: {list(self._databases.keys())}")
             return False
         
         db = self._databases[vps_name]
         email_hash = compute_email_hash(email)
         
         try:
-            result = await db[collection_name].find_one(
-                {"_email_hash": email_hash},
-                {"_id": 1}
+            result = await asyncio.wait_for(
+                db[collection_name].find_one(
+                    {"_email_hash": email_hash},
+                    {"_id": 1}
+                ),
+                timeout=5.0
             )
-            return result is not None
+            
+            is_leaked = result is not None
+            email_checker_logger.debug(f"Email check: {email} -> {vps_name}/{collection_name} -> {'LEAKED' if is_leaked else 'FRESH'}")
+            return is_leaked
+            
+        except asyncio.TimeoutError:
+            email_checker_logger.error(f"Timeout checking email in {vps_name}/{collection_name}: {email}")
+            return False
         except Exception as e:
-            print(f"Error checking email in {vps_name}/{collection_name}: {e}")
+            email_checker_logger.error(f"Error checking email in {vps_name}/{collection_name}: {type(e).__name__}: {str(e)}")
+            email_checker_logger.error(f"Email: {email}, Hash: {email_hash}")
             return False
     
     async def check_emails_batch(

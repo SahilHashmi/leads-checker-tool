@@ -1,7 +1,8 @@
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from typing import Optional, Dict, List
-from ..core.config import settings
 import asyncio
+from ..core.config import settings
+from ..core.logger import db_logger, vps_logger
 
 
 class MongoDB:
@@ -13,21 +14,59 @@ db = MongoDB()
 
 
 async def connect_to_mongo():
-    """Connect to the main MongoDB database."""
-    db.client = AsyncIOMotorClient(settings.MONGODB_URL)
-    db.database = db.client[settings.MONGODB_DATABASE]
+    """Connect to MongoDB with retry logic."""
+    global db
     
-    # Create indexes
-    await create_indexes()
+    db_logger.info(f"Connecting to MongoDB at {settings.MONGODB_URL}")
+    db_logger.info(f"Database: {settings.MONGODB_DATABASE}")
     
-    print(f"Connected to MongoDB: {settings.MONGODB_DATABASE}")
+    max_retries = 3
+    retry_delay = 2
+    
+    for attempt in range(1, max_retries + 1):
+        try:
+            db_logger.info(f"MongoDB connection attempt {attempt}/{max_retries}")
+            
+            db.client = AsyncIOMotorClient(
+                settings.MONGODB_URL,
+                serverSelectionTimeoutMS=10000,
+                connectTimeoutMS=10000
+            )
+            
+            # Test connection
+            await asyncio.wait_for(
+                db.client.admin.command('ping'),
+                timeout=10.0
+            )
+            
+            db.database = db.client[settings.MONGODB_DATABASE]
+            db_logger.info(f"✓ Successfully connected to MongoDB: {settings.MONGODB_DATABASE}")
+            await create_indexes()
+            print(f"Connected to MongoDB: {settings.MONGODB_DATABASE}")
+            return
+            
+        except asyncio.TimeoutError:
+            db_logger.error(f"MongoDB connection timeout on attempt {attempt}/{max_retries}")
+            if attempt < max_retries:
+                db_logger.info(f"Retrying in {retry_delay} seconds...")
+                await asyncio.sleep(retry_delay)
+                
+        except Exception as e:
+            db_logger.error(f"MongoDB connection failed on attempt {attempt}/{max_retries}: {type(e).__name__}: {str(e)}")
+            if attempt < max_retries:
+                db_logger.info(f"Retrying in {retry_delay} seconds...")
+                await asyncio.sleep(retry_delay)
+    
+    error_msg = f"Failed to connect to MongoDB after {max_retries} attempts"
+    db_logger.error(error_msg)
+    raise ConnectionError(error_msg)
 
 
 async def close_mongo_connection():
     """Close the MongoDB connection."""
     if db.client:
         db.client.close()
-        print("Closed MongoDB connection")
+        db_logger.info("MongoDB connection closed")
 
 
 async def create_indexes():
@@ -93,21 +132,50 @@ class ExternalVPSConnections:
     @classmethod
     async def connect_all(cls):
         """Connect to all enabled external VPS databases."""
-        for vps in cls.get_vps_configs():
+        configs = cls.get_vps_configs()
+        
+        if not configs:
+            vps_logger.warning("⚠ WARNING: No external VPS databases configured!")
+            return
+        
+        vps_logger.info(f"Connecting to {len(configs)} external VPS databases...")
+        
+        for vps in configs:
             try:
-                client = AsyncIOMotorClient(vps["url"], serverSelectionTimeoutMS=5000)
+                vps_logger.info(f"Connecting to {vps['name']} at {vps['url']}")
+                
+                client = AsyncIOMotorClient(
+                    vps["url"],
+                    serverSelectionTimeoutMS=10000,
+                    connectTimeoutMS=10000
+                )
+                
+                # Test connection
+                await asyncio.wait_for(
+                    client.admin.command('ping'),
+                    timeout=10.0
+                )
+                
                 cls._connections[vps["name"]] = client
                 cls._databases[vps["name"]] = client[vps["database"]]
-                print(f"Connected to external VPS: {vps['name']}")
+                vps_logger.info(f"✓ Connected to external VPS: {vps['name']}")
+                
+            except asyncio.TimeoutError:
+                vps_logger.error(f"✗ Timeout connecting to {vps['name']}")
             except Exception as e:
-                print(f"Failed to connect to {vps['name']}: {e}")
+                vps_logger.error(f"✗ Failed to connect to {vps['name']}: {type(e).__name__}: {str(e)}")
+        
+        vps_logger.info(f"External VPS connections: {len(cls._databases)}/{len(configs)} successful")
     
     @classmethod
     async def close_all(cls):
         """Close all external VPS connections."""
         for name, client in cls._connections.items():
-            client.close()
-            print(f"Closed connection to {name}")
+            try:
+                client.close()
+                vps_logger.info(f"Closed connection to {name}")
+            except Exception as e:
+                vps_logger.error(f"Error closing connection to {name}: {e}")
         cls._connections.clear()
         cls._databases.clear()
     

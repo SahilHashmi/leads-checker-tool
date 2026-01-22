@@ -63,10 +63,70 @@ function AdminKeys({ onLogout }) {
     }
   };
 
-  const handleCopyKey = (key) => {
-    navigator.clipboard.writeText(key);
-    setCopiedKey(key);
-    setTimeout(() => setCopiedKey(null), 2000);
+  const handleCopyKey = async (key) => {
+    try {
+      let copySuccess = false;
+      
+      // Try modern clipboard API first (requires HTTPS)
+      if (navigator.clipboard && window.isSecureContext) {
+        try {
+          await navigator.clipboard.writeText(key);
+          copySuccess = true;
+        } catch (clipboardErr) {
+          console.warn('Clipboard API failed, trying fallback:', clipboardErr);
+        }
+      }
+      
+      // Fallback for HTTP/non-HTTPS environments (VPS)
+      if (!copySuccess) {
+        const textArea = document.createElement('textarea');
+        textArea.value = key;
+        
+        // Make textarea visible but off-screen for better compatibility
+        textArea.style.position = 'absolute';
+        textArea.style.left = '-9999px';
+        textArea.style.top = '0';
+        textArea.style.opacity = '0';
+        textArea.setAttribute('readonly', '');
+        
+        document.body.appendChild(textArea);
+        
+        // For iOS compatibility
+        if (navigator.userAgent.match(/ipad|ipod|iphone/i)) {
+          const range = document.createRange();
+          range.selectNodeContents(textArea);
+          const selection = window.getSelection();
+          selection.removeAllRanges();
+          selection.addRange(range);
+          textArea.setSelectionRange(0, 999999);
+        } else {
+          textArea.select();
+          textArea.setSelectionRange(0, 999999);
+        }
+        
+        try {
+          copySuccess = document.execCommand('copy');
+          if (!copySuccess) {
+            throw new Error('execCommand returned false');
+          }
+        } catch (execErr) {
+          console.error('execCommand failed:', execErr);
+        }
+        
+        document.body.removeChild(textArea);
+      }
+      
+      if (copySuccess) {
+        setCopiedKey(key);
+        setTimeout(() => setCopiedKey(null), 2000);
+      } else {
+        throw new Error('All copy methods failed');
+      }
+    } catch (err) {
+      console.error('Failed to copy key:', err);
+      setError(`Failed to copy key. Please manually select and copy: ${key}`);
+      setTimeout(() => setError(''), 5000);
+    }
   };
 
   const formatDate = (dateString) => {
