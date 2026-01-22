@@ -223,22 +223,25 @@ class EmailCheckerService:
         vps_list = []
         
         vps_configs = [
-            ("VPS2", settings.VPS2_MONGODB_URL, settings.VPS2_MONGODB_DATABASE, settings.VPS2_ENABLED),
-            ("VPS3", settings.VPS3_MONGODB_URL, settings.VPS3_MONGODB_DATABASE, settings.VPS3_ENABLED),
-            ("VPS4", settings.VPS4_MONGODB_URL, settings.VPS4_MONGODB_DATABASE, settings.VPS4_ENABLED),
-            ("VPS5", settings.VPS5_MONGODB_URL, settings.VPS5_MONGODB_DATABASE, settings.VPS5_ENABLED),
-            ("VPS6", settings.VPS6_MONGODB_URL, settings.VPS6_MONGODB_DATABASE, settings.VPS6_ENABLED),
-            ("VPS7", settings.VPS7_MONGODB_URL, settings.VPS7_MONGODB_DATABASE, settings.VPS7_ENABLED),
-            ("VPS8", settings.VPS8_MONGODB_URL, settings.VPS8_MONGODB_DATABASE, settings.VPS8_ENABLED),
+            ("VPS2", settings.VPS2_MONGODB_DATABASE, settings.VPS2_ENABLED),
+            ("VPS3", settings.VPS3_MONGODB_DATABASE, settings.VPS3_ENABLED),
+            ("VPS4", settings.VPS4_MONGODB_DATABASE, settings.VPS4_ENABLED),
+            ("VPS5", settings.VPS5_MONGODB_DATABASE, settings.VPS5_ENABLED),
+            ("VPS6", settings.VPS6_MONGODB_DATABASE, settings.VPS6_ENABLED),
+            ("VPS7", settings.VPS7_MONGODB_DATABASE, settings.VPS7_ENABLED),
+            ("VPS8", settings.VPS8_MONGODB_DATABASE, settings.VPS8_ENABLED),
         ]
         
-        for name, url, database, enabled in vps_configs:
-            if enabled and url:
-                vps_list.append({
-                    "name": name,
-                    "url": url,
-                    "database": database
-                })
+        for name, database, enabled in vps_configs:
+            if enabled:
+                # Get URL based on ENV_MODE
+                url = settings.get_vps_url(name)
+                if url:
+                    vps_list.append({
+                        "name": name,
+                        "url": url,
+                        "database": database
+                    })
         
         return vps_list
     

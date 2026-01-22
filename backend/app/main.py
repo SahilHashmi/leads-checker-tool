@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from .db.mongodb import connect_to_mongo, close_mongo_connection
-from .api.routes import auth, leads, admin
+from .api.routes import auth, leads, admin, debug
 from .core.config import settings
 from .core.logger import app_logger
 
@@ -12,6 +12,7 @@ async def lifespan(app: FastAPI):
     # Startup
     app_logger.info("="*60)
     app_logger.info("Starting Leads Checker Tool API")
+    app_logger.info(f"ENV_MODE: {settings.ENV_MODE}")
     app_logger.info(f"Environment: {'DEBUG' if settings.DEBUG else 'PRODUCTION'}")
     app_logger.info(f"MongoDB URL: {settings.MONGODB_URL}")
     app_logger.info(f"MongoDB Database: {settings.MONGODB_DATABASE}")
@@ -52,6 +53,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api")
 app.include_router(leads.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
+app.include_router(debug.router, prefix="/api")
 
 
 @app.get("/")

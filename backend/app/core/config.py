@@ -10,6 +10,9 @@ ENV_FILE = PROJECT_ROOT / ".env"
 
 
 class Settings(BaseSettings):
+    # Environment Mode
+    ENV_MODE: str = "local"  # "local" or "server"
+    
     # Application
     APP_NAME: str = "leads-checker-tool"
     DEBUG: bool = False
@@ -27,7 +30,7 @@ class Settings(BaseSettings):
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
     CELERY_WORKER_CONCURRENCY: int = 4
     
-    # External VPS Databases (READ ONLY)
+    # External VPS Databases (READ ONLY) - Local URLs
     VPS2_MONGODB_URL: Optional[str] = None
     VPS2_MONGODB_DATABASE: str = "email_data"
     VPS2_ENABLED: bool = False
@@ -56,6 +59,15 @@ class Settings(BaseSettings):
     VPS8_MONGODB_DATABASE: str = "email_data"
     VPS8_ENABLED: bool = False
     
+    # Server VPS URLs (used when ENV_MODE=server)
+    SERVER_VPS2_MONGODB_URL: Optional[str] = None
+    SERVER_VPS3_MONGODB_URL: Optional[str] = None
+    SERVER_VPS4_MONGODB_URL: Optional[str] = None
+    SERVER_VPS5_MONGODB_URL: Optional[str] = None
+    SERVER_VPS6_MONGODB_URL: Optional[str] = None
+    SERVER_VPS7_MONGODB_URL: Optional[str] = None
+    SERVER_VPS8_MONGODB_URL: Optional[str] = None
+    
     # Admin
     ADMIN_USERNAME: str = "admin"
     ADMIN_PASSWORD: str = "change-this-password"
@@ -64,6 +76,16 @@ class Settings(BaseSettings):
     MAX_UPLOAD_SIZE_MB: int = 50
     UPLOAD_DIR: str = "./uploads"
     RESULTS_DIR: str = "./results"
+    
+    def get_vps_url(self, vps_name: str) -> Optional[str]:
+        """Get VPS URL based on ENV_MODE."""
+        if self.ENV_MODE == "server":
+            # Use SERVER_VPS URLs if available
+            server_url = getattr(self, f"SERVER_{vps_name}_MONGODB_URL", None)
+            if server_url:
+                return server_url
+        # Fall back to regular VPS URLs
+        return getattr(self, f"{vps_name}_MONGODB_URL", None)
     
     class Config:
         env_file = str(ENV_FILE)

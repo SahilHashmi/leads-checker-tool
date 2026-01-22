@@ -63,22 +63,47 @@ function AdminKeys({ onLogout }) {
     }
   };
 
-  const handleCopyKey = async (key) => {
+  const handleCopyKey = (key) => {
+    let copySuccess = false;
+    
     try {
-      let copySuccess = false;
-      
-      // Try modern clipboard API first (requires HTTPS)
-      if (navigator.clipboard && window.isSecureContext) {
-        try {
-          await navigator.clipboard.writeText(key);
-          copySuccess = true;
-        } catch (clipboardErr) {
-          console.warn('Clipboard API failed, trying fallback:', clipboardErr);
+      // Try modern clipboard API first (requires HTTPS and proper support)
+      try {
+        if (
+          typeof navigator !== 'undefined' &&
+          navigator.clipboard &&
+          typeof navigator.clipboard.writeText === 'function' &&
+          window.isSecureContext
+        ) {
+          navigator.clipboard.writeText(key).then(() => {
+            console.log('[Clipboard] Modern API succeeded');
+            setCopiedKey(key);
+            setTimeout(() => setCopiedKey(null), 2000);
+          }).catch((clipboardErr) => {
+            console.warn('[Clipboard] Modern API failed, trying fallback:', clipboardErr);
+            // Use fallback if modern API fails
+            copyWithFallback(key);
+          });
+          return; // Exit early if modern API is attempted
         }
+      } catch (e) {
+        console.log('[Clipboard] Modern API check failed:', e);
       }
       
-      // Fallback for HTTP/non-HTTPS environments (VPS)
-      if (!copySuccess) {
+      // Use fallback method
+      console.log('[Clipboard] Using fallback method');
+      copyWithFallback(key);
+      
+    } catch (err) {
+      console.error('[Clipboard] Failed to copy key:', err);
+      setError(`Failed to copy key. Please manually select and copy: ${key}`);
+      setTimeout(() => setError(''), 5000);
+    }
+  };
+
+  const copyWithFallback = (key) => {
+    try {
+      let copySuccess = false;
         const textArea = document.createElement('textarea');
         textArea.value = key;
         
@@ -104,17 +129,17 @@ function AdminKeys({ onLogout }) {
           textArea.setSelectionRange(0, 999999);
         }
         
-        try {
-          copySuccess = document.execCommand('copy');
-          if (!copySuccess) {
-            throw new Error('execCommand returned false');
-          }
-        } catch (execErr) {
-          console.error('execCommand failed:', execErr);
+      try {
+        copySuccess = document.execCommand('copy');
+        if (!copySuccess) {
+          throw new Error('execCommand returned false');
         }
-        
-        document.body.removeChild(textArea);
+        console.log('[Clipboard] Fallback method succeeded');
+      } catch (execErr) {
+        console.error('[Clipboard] Fallback method failed:', execErr);
       }
+      
+      document.body.removeChild(textArea);
       
       if (copySuccess) {
         setCopiedKey(key);
@@ -123,7 +148,7 @@ function AdminKeys({ onLogout }) {
         throw new Error('All copy methods failed');
       }
     } catch (err) {
-      console.error('Failed to copy key:', err);
+      console.error('[Clipboard] Fallback copy failed:', err);
       setError(`Failed to copy key. Please manually select and copy: ${key}`);
       setTimeout(() => setError(''), 5000);
     }
