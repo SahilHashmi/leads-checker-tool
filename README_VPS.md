@@ -388,8 +388,8 @@ Your deployment is successful when:
 ## 🚀 Live URLs
 
 - **Frontend**: http://138.226.247.175/
-- **Backend API**: http://138.226.247.175:4005/
-- **API Health**: http://138.226.247.175:4005/health
+- **Backend API**: http://127.0.0.1:8000/
+- **API Health**: http://127.0.0.1:8000/health
 
 ---
 

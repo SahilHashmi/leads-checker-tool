@@ -329,7 +329,7 @@ sudo systemctl start leads-checker-api
 **B. Wrong API URL in frontend**:
 Check `.env`:
 ```env
-VITE_API_URL=http://138.226.247.175:4005/api
+VITE_API_URL=http://127.0.0.1:8000/api
 ```
 
 Rebuild frontend:

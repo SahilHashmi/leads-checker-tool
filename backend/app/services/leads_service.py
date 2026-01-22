@@ -17,8 +17,10 @@ class LeadsService:
     
     @staticmethod
     def is_valid_email(email: str) -> bool:
-        """Basic email validation."""
-        pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        """Basic email validation - allows special characters that exist in leaked databases."""
+        # More permissive pattern to match emails in VPS databases
+        # Allows: letters, numbers, and special chars like !._%+- in local part
+        pattern = r'^[^\s@]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
         return bool(re.match(pattern, email))
     
     @staticmethod

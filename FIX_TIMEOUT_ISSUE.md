@@ -75,7 +75,7 @@ sudo systemctl restart leads-checker-worker
 
 **Test with debug endpoint:**
 ```bash
-curl -X POST "http://138.226.247.175:4005/api/debug/test-email?email=rodriguesantonio@aeplegua.pt"
+curl -X POST "http://127.0.0.1:8000/api/debug/test-email?email=rodriguesantonio@aeplegua.pt"
 ```
 
 Should now show:

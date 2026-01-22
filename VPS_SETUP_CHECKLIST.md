@@ -209,7 +209,7 @@ tail -f /path/to/leads-checker-tool/backend/logs/vps_connections.log
 
 ### 2. Test API Health
 ```bash
-curl http://138.226.247.175:4005/health
+curl http://127.0.0.1:8000/health
 # Should return: {"status":"healthy"}
 ```
 

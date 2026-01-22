@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://138.226.247.175:4005/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 
 console.log('[API] Initializing API client');
 console.log('[API] Base URL:', API_URL);
