@@ -71,12 +71,6 @@ function DeviceKeyPage({ onSuccess }) {
             {loading ? 'Verifying...' : 'Verify & Continue'}
           </button>
         </form>
-
-        <div className="mt-6 text-center">
-          <a href="/admin" className="text-sm text-gray-500 hover:text-blue-600 transition">
-            Admin Panel →
-          </a>
-        </div>
       </div>
     </div>
   );

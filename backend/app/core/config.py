@@ -69,8 +69,8 @@ class Settings(BaseSettings):
     SERVER_VPS8_MONGODB_URL: Optional[str] = None
     
     # Admin
-    ADMIN_USERNAME: str = "admin"
-    ADMIN_PASSWORD: str = "change-this-password"
+    ADMIN_EMAIL: str = "arif.pambudi0191@gmail.com"
+    ADMIN_PASSWORD: str = "HIBP123#"
     
     # File Upload
     MAX_UPLOAD_SIZE_MB: int = 50

@@ -119,7 +119,7 @@ class UploadResponse(BaseModel):
 # ==================== Admin Schemas ====================
 
 class AdminLogin(BaseModel):
-    username: str
+    email: EmailStr
     password: str
 
 

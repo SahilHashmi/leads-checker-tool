@@ -1,11 +1,23 @@
 """
 Centralized logging configuration for the application.
 """
+import io
 import logging
 import sys
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
 from .config import settings
+
+# Ensure stdout uses UTF-8 so log messages with Unicode characters don't fail on Windows consoles
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+else:
+    sys.stdout = io.TextIOWrapper(
+        sys.stdout.buffer,
+        encoding="utf-8",
+        errors="replace",
+        line_buffering=True
+    )
 
 # Create logs directory
 LOGS_DIR = Path("logs")

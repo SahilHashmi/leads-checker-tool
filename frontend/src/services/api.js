@@ -80,8 +80,8 @@ export const authApi = {
   verifyKey: (deviceKey) => 
     api.post('/auth/verify-key', { device_key: deviceKey }),
   
-  adminLogin: (username, password) =>
-    api.post('/auth/admin/login', { username, password }),
+  adminLogin: (email, password) =>
+    api.post('/auth/admin/login', { email, password }),
 };
 
 // Leads API

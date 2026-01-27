@@ -37,14 +37,14 @@ async def verify_device_key(
 @router.post("/admin/login", response_model=AdminLoginResponse)
 async def admin_login(data: AdminLogin):
     """Admin login to get access token."""
-    if data.username != settings.ADMIN_USERNAME or data.password != settings.ADMIN_PASSWORD:
+    if data.email != settings.ADMIN_EMAIL or data.password != settings.ADMIN_PASSWORD:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials"
         )
     
     access_token = create_access_token(
-        data={"sub": data.username, "type": "admin"}
+        data={"sub": data.email, "type": "admin"}
     )
     
     return AdminLoginResponse(access_token=access_token)
