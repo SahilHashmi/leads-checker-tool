@@ -33,7 +33,9 @@ class DeviceKeyResponse(BaseModel):
     id: str
     key: str
     status: DeviceKeyStatus
+    hardware_id: Optional[str] = None
     created_at: datetime
+    activated_at: Optional[datetime] = None
     
     class Config:
         from_attributes = True
@@ -41,11 +43,23 @@ class DeviceKeyResponse(BaseModel):
 
 class DeviceKeyVerify(BaseModel):
     device_key: str
+    hardware_id: Optional[str] = None
 
 
 class DeviceKeyVerifyResponse(BaseModel):
     valid: bool
     message: str
+
+
+class DeviceKeyActivate(BaseModel):
+    device_key: str
+    hardware_id: str
+
+
+class DeviceKeyActivateResponse(BaseModel):
+    success: bool
+    message: str
+    key: Optional[DeviceKeyResponse] = None
 
 
 class DeviceKeyUpdate(BaseModel):

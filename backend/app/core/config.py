@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     SECRET_KEY: str = "your-super-secret-key-change-in-production"
     
+    # Base URLs (managed from .env)
+    BACKEND_BASE_URL: str = "http://localhost:8000"
+    FRONTEND_URL: str = "http://localhost:3000"
+    
     # MongoDB (New VPS - Main Database)
     MONGODB_URL: str = "mongodb://localhost:27017"
     MONGODB_DATABASE: str = "leads_checker"

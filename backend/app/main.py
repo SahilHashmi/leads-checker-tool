@@ -14,6 +14,8 @@ async def lifespan(app: FastAPI):
     app_logger.info("Starting Leads Checker Tool API")
     app_logger.info(f"ENV_MODE: {settings.ENV_MODE}")
     app_logger.info(f"Environment: {'DEBUG' if settings.DEBUG else 'PRODUCTION'}")
+    app_logger.info(f"Backend URL: {settings.BACKEND_BASE_URL}")
+    app_logger.info(f"Frontend URL: {settings.FRONTEND_URL}")
     app_logger.info(f"MongoDB URL: {settings.MONGODB_URL}")
     app_logger.info(f"MongoDB Database: {settings.MONGODB_DATABASE}")
     app_logger.info("="*60)
@@ -43,7 +45,11 @@ app = FastAPI(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=[
+        settings.FRONTEND_URL,
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
