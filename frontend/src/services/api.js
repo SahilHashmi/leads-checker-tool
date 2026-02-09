@@ -1,7 +1,9 @@
 import axios from 'axios';
 
-// Read backend base URL from .env (VITE_BACKEND_BASE_URL=http://your-server:port)
-let BACKEND_URL = (import.meta.env.VITE_BACKEND_BASE_URL || '').replace(/\/+$/, '').replace(/\/api$/, '');
+// Read backend base URL from .env (BACKEND_BASE_URL or VITE_BACKEND_BASE_URL)
+// __BACKEND_BASE_URL__ is injected at build time by vite.config.js (always stripped of /api)
+const BACKEND_URL = (typeof __BACKEND_BASE_URL__ !== 'undefined' ? __BACKEND_BASE_URL__ : '') ||
+  (import.meta.env.VITE_BACKEND_BASE_URL || '').replace(/\/+$/, '').replace(/\/api\/?$/, '');
 const API_URL = BACKEND_URL ? `${BACKEND_URL}/api` : '/api';
 
 console.log('[API] Initializing API client');
