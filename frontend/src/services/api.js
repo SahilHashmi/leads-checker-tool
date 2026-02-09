@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_BASE_URL || import.meta.env.VITE_API_URL || '';
+// Read backend base URL from .env (VITE_BACKEND_BASE_URL=http://your-server:port)
+let BACKEND_URL = (import.meta.env.VITE_BACKEND_BASE_URL || '').replace(/\/+$/, '').replace(/\/api$/, '');
 const API_URL = BACKEND_URL ? `${BACKEND_URL}/api` : '/api';
 
 console.log('[API] Initializing API client');
